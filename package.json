@@ -1,0 +1,34 @@
+{
+  "dependencies": {
+    "redis": "^3.0.2",
+    "@userdashboard/maxmind-geoip": "1.x - latest"
+  },
+  "peerDependencies": {
+    "@userdashboard/dashboard": "1.x - latest"
+  },
+  "dashboard": {
+    "server": [
+      "/src/content/usage/count-active-users.js",
+      "/src/content/usage/count-registrations.js"
+    ],
+    "modules": [
+      "@userdashboard/maxmind-geoip"
+    ]
+  },
+  "description": "Aggregated usage report for Dashboard administrators",
+  "engines": {
+    "node": ">=14.0",
+    "npm": ">=6.0"
+  },
+  "license": "MIT",
+  "main": "index.js",
+  "name": "@userdashboard/usage",
+  "repository": {
+    "type": "git",
+    "url": "git://github.com/userdashboard/usage.git"
+  },
+  "scripts": {
+    "test": "act -j test-redis-storage"
+  },
+  "version": "1.0.0"
+}

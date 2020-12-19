@@ -1,0 +1,65 @@
+name: test-redis-storage
+
+on: [push]
+
+jobs:
+  test-redis-storage:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v1
+    - uses: actions/setup-node@v1
+      with:
+        node-version: 14
+    - uses: zhulik/redis-action@1.1.0
+      with:
+        redis version: 5
+        number of databases: 1
+    - name: Optionally install Chromium via APT instead of puppeteer
+      run: |
+        if [ ! -z "$PUPPETEER_SKIP_CHROMIUM_DOWNLOAD" ]; then
+          APT_INSTALL="chromium gconf-service libasound2 libatk1.0-0 libc6 libcairo2 libcups2 libdbus-1-3 libexpat1 libfontconfig1 libgcc1 libgconf-2-4 libgdk-pixbuf2.0-0 libglib2.0-0 libgtk-3-0 libnspr4 libpango-1.0-0 libpangocairo-1.0-0 libstdc++6 libx11-6 libx11-xcb1 libxcb1 libxcomposite1 libxcursor1 libxdamage1 libxext6 libxfixes3 libxi6 libxrandr2 libxrender1 libxss1 libxtst6 ca-certificates fonts-liberation libappindicator1 libnss3 lsb-release xdg-utils wget"
+          if [ ! -z "$APT_PROXY" ]; then
+            echo "deb $APT_PROXY buster main" > /etc/apt/sources.list
+          fi
+          apt-get update
+          apt-get install -y $APT_INSTALL
+        fi
+    - name: Set up project
+      run: |
+        HERE=`pwd`
+        mkdir /tmp/project
+        cd /tmp/project
+        if [ -d /opt/hostedtoolcache/node/ ]; then
+          export alias node=`find /opt/hostedtoolcache/node/ -maxdepth 4 -name node`
+          export alias npm=`find /opt/hostedtoolcache/node/ -maxdepth 4 -name npm`
+        fi
+        npm init -y
+        npm install "$HERE" @userdashboard/dashboard @userdashboard/maxmind-geoip @userdashboard/storage-redis mocha faker puppeteer
+        PACKAGE=`cat package.json`
+        PACKAGE=${PACKAGE/\"description\"\: \"\"/\"dashboard\": \{ \"modules\"\: \[\"@userdashboard/usage\"\] \}}
+        echo $PACKAGE > package.json
+        echo "global.applicationPath = __dirname" > main.js
+        echo "require('@userdashboard/usage/test-helper.js')" >> main.js
+    - name: Test unencrypted Redis storage
+      run: ./node_modules/.bin/mocha --file main.js --bail --exit --recursive --timeout 90000000 $(find ./node_modules/@userdashboard/usage/ -name "*.test.js" | grep -i -v [a-z0-9]/node_modules | sort -k5.1,8.1 -t /)
+      working-directory: /tmp/project
+      env:
+        NODE_ENV: testing
+        STORAGE: "@userdashboard/storage-redis"
+        REDIS_URL: redis://localhost:6379
+        PORT: 8000
+        HOST: localhost
+        NODE_OPTIONS: --preserve-symlinks
+    - name: Test encrypted Redis storage
+      run: ./node_modules/.bin/mocha --file main.js --bail --exit --recursive --timeout 90000000 $(find ./node_modules/@userdashboard/usage/ -name "*.test.js" | grep -i -v [a-z0-9]/node_modules | sort -k5.1,8.1 -t /)
+      working-directory: /tmp/project
+      env:
+        NODE_ENV: testing
+        STORAGE: "@userdashboard/storage-redis"
+        REDIS_URL: redis://localhost:6379
+        ENCRYPTION_SECRET: abc45678901234567890123456789012
+        ENCRYPTION_SECRET_IV: abc4123412341234
+        PORT: 8000
+        HOST: localhost 
+        DASHBOARD_SERVER: 'http://localhost:8000'
+        NODE_OPTIONS: --preserve-symlinks
